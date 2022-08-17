@@ -13,12 +13,11 @@ from sklearn.linear_model import RidgeClassifierCV
 from threading import Thread
 import time
 import os
-# import board
-# import adafruit_dht
+import board
+import adafruit_dht
 
 import create_activity
 import iot_ping_create
-import ai_signal_data_create
 
 fall_counter=0
 walking_counter=0
@@ -31,17 +30,16 @@ new_array=[]
 motion_counter=0
 prediction_counter=0
 
-# temp=0
-# hum=0
-# temp_hum_count=0
+temp=0
+hum=0
+temp_hum_count=0
 previous_time=time.time()
 
 class prediction:
     
     def __init__(self, motherarray):
         self.motherarray=motherarray
-        # self.filename = 'model/cov_updated_KNN_4_slide35.sav'
-        # self.filename = 'model/cov_updated_RANDOMfOREST_4_slide35.sav'
+
         self.filename = '/home/pi/Desktop/CLOSER/model/coef_updated_rf_4.sav'
         self.model = pickle.load(open(self.filename, 'rb'))
         
@@ -50,21 +48,21 @@ class prediction:
         
         self.sec=10
         self.ping_time=10
-        # self.Error=False
+        self.Error=False
         self.current_time=time.time()
         
-        # dhtDevice = adafruit_dht.DHT22(board.D4, use_pulseio=False)
+        dhtDevice = adafruit_dht.DHT22(board.D4, use_pulseio=False)
         
-        # try:
-        #     self.temperature_c = dhtDevice.temperature
-        #     self.humidity = dhtDevice.humidity           
+        try:
+            self.temperature_c = dhtDevice.temperature
+            self.humidity = dhtDevice.humidity           
     
-        # except RuntimeError:
-        #     self.Error=True
+        except RuntimeError:
+            self.Error=True
             
-        # except Exception as error:
-        #     dhtDevice.exit()
-        #     raise error
+        except Exception as error:
+            dhtDevice.exit()
+            raise error
            
     def run_model_coefcorr(self, data,model):
          #data 50X64 array
@@ -172,9 +170,9 @@ class prediction:
         global last_activity
         global last_activity1
         global new_array
-        # global temp
-        # global hum
-        # global temp_hum_count
+        global temp
+        global hum
+        global temp_hum_count
         global previous_time
         
         current_time=time.time()
@@ -208,10 +206,10 @@ class prediction:
             print("----class sitting----")
             sitting_counter+=1
         
-        # if not self.Error:
-        #     temp+=self.temperature_c
-        #     hum+=self.humidity
-        #     temp_hum_count+=1    
+        if not self.Error:
+            temp+=self.temperature_c
+            hum+=self.humidity
+            temp_hum_count+=1    
         
         if prediction_counter%5==0:
             new_array+=self.motherarray
@@ -247,11 +245,6 @@ class prediction:
             m = int(time.strftime("%M", time.localtime())) 
 
             if not activity1==last_activity1 or not activity==last_activity or m < 1: 
-                create_activity_object=create_activity.create_activity(activity1,activity)
-                myDataLoop_Stream3 = Thread(name = 'myDataLoop_Stream3', target = create_activity_object.create_activity,
-                                                      daemon = True, args = (activity1,activity,))
-                myDataLoop_Stream3.start()
-                
                 
                 narray=np.asarray(new_array)
                 narray = narray.reshape(narray.shape[0] * narray.shape[1], narray.shape[2])
@@ -261,11 +254,10 @@ class prediction:
                 np.save("/home/pi/Desktop/ai_signal_create_test/data/"+activity+"_sta2_phase.npy", narray, allow_pickle=True, fix_imports=True)
                 np.save("/home/pi/Desktop/ai_signal_create_test/data/"+activity+"_sta2_amp.npy", narray, allow_pickle=True, fix_imports=True)
                 
-                ai_signal_data_create_object=ai_signal_data_create.ai_signal_data_create(activity)
-                myDataLoop_Stream4 = Thread(name = 'myDataLoop_Stream4', target = ai_signal_data_create_object.ai_signal_data_create,
-                                                      daemon = True, args = (activity,))
-                myDataLoop_Stream4.start()
-                
+                create_activity_object=create_activity.create_activity(activity1,activity)
+                myDataLoop_Stream3 = Thread(name = 'myDataLoop_Stream3', target = create_activity_object.create_activity,
+                                                      daemon = True, args = (activity1,activity,))
+                myDataLoop_Stream3.start()
                 
                 last_activity1=activity1
                 last_activity=activity
@@ -275,11 +267,11 @@ class prediction:
         if current_time-previous_time>=self.ping_time:
             previous_time=current_time
             
-            average_temp = 25 #temp/temp_hum_count
-            average_hum = 25 # hum/temp_hum_count
-#             temp=0
-#             hum=0
-#             temp_hum_count=0
+            average_temp = temp/temp_hum_count
+            average_hum = hum/temp_hum_count
+            temp=0
+            hum=0
+            temp_hum_count=0
             
             print("average temp: " + str(average_temp) + "average hum: " + str(average_hum))
             
